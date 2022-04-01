@@ -6,3 +6,5 @@
 build/
 *.g.dart
 *.freezed.dart
+blocks/
+blocks2/

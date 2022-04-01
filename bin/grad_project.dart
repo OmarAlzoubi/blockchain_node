@@ -1,69 +1,107 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:riverpod/riverpod.dart';
+import 'package:args/args.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-
+// import 'package:shelf_web_socket/shelf_web_socket.dart';
+// import 'interfaces/impl/host_message_handeler.dart';
+import 'interfaces/impl/host_message_handeler.dart';
 import 'models/block_store.dart';
 import 'models/client_store.dart';
-import 'models/request_model/request_model.dart';
+import 'models/host_model/host_model.dart';
+import 'models/message_model/message_model.dart';
 
-final container = ProviderContainer();
-Future<void> main() async {
-  final clients = ClientStore.instance;
-  final blocks = BlockStore.instance;
-  final port = int.parse(Platform.environment['PORT'] ?? '8080');
+Future<void> main(List<String> args) async {
+  final parser = ArgParser();
+  parser.addOption('port', abbr: 'p', defaultsTo: '8080');
+  parser.addOption('hosts', abbr: 'h', defaultsTo: 'hosts.json');
+  parser.addOption('blocks', abbr: 'b', defaultsTo: 'blocks');
+  final parserResults = parser.parse(args);
+  final port = int.parse(parserResults['port']);
+  final hostsFileName = parserResults['hosts'] as String;
+  final blocksFolderName = parserResults['blocks'] as String;
 
-  final handler = Pipeline().addHandler(
-    webSocketHandler(
-      (WebSocketChannel socket) async {
-        socket.stream.listen(
+  final router = Router();
+
+  router.get(
+    '/getBlock/<blockId>',
+    (Request request, String blockId) async {
+      if (BlockStore.contains(blockId)) {
+        final block = BlockStore.get(blockId)!;
+        return Response.ok(jsonEncode(block));
+      } else {
+        HostStore.broadcastMessage(Message.blockLookupRequest([], blockId));
+        final completer = Completer();
+        bool timedOut = false;
+        Stream.fromFuture(
+          BlockStore.stream.firstWhere(
+            (element) => element.containsKey(blockId),
+          ),
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: (_) {
+            if (!completer.isCompleted) {
+              timedOut = true;
+              completer.complete();
+            }
+          },
+        ).listen(
           (event) {
-            final request = ConcreteRequest.fromJson(jsonDecode(event));
-            request.when(
-              connectionRequest: (client) {
-                if (client.clientId == "uniqueId") {
-                  final id = Uuid().v4();
-                  clients.add(client.copyWith(clientId: id));
-                  socket.sink.add(id);
-                }
-                if (!clients.contains(client)) {
-                  clients.add(client);
-                }
-              },
-              blockRequest: (client, blockId) {
-                if (clients.contains(client)) {
-                  print('$client has requested $blockId');
-                  if (blocks.containsById(blockId)) {
-                    print('$client will get $blockId');
-                    socket.sink.add(blocks.getById(blockId));
-                  } else {
-                    socket.sink.add("Block $blockId does not exist");
-                  }
-                }
-              },
-              createBlock: (client, block) {
-                if (clients.contains(client)) {
-                  blocks.add(block);
-                  socket.sink.add('Block Created');
-                  socket.sink.add(block);
-                }
-              },
-            );
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
           },
         );
-      },
-    ),
+
+        await completer.future;
+        if (!timedOut) {
+          print(BlockStore.blocks);
+          return Response.ok(jsonEncode(BlockStore.get(blockId)));
+        }
+
+        return Response.ok('block-not-found');
+      }
+    },
+  );
+  //final ip = 'ws://127.0.0.1:$port';
+
+  router.get(
+    '/<hostId>',
+    (Request request, String hostId) {
+      return webSocketHandler(
+        (WebSocketChannel socket) {
+          if (HostStore.containsById(hostId)) {
+            final handeler = HostMessageHandeler(socket, hostId);
+            HostStore.add(hostId, handeler);
+          }
+        },
+      ).call(request);
+    },
   );
 
   final server = await shelf_io.serve(
-    handler,
+    router,
     '127.0.0.1',
     port,
+  );
+  await BlockStore.initialize(blocksFolderName);
+  await HostStore.initialize(
+    hostsFileName,
+    Host(
+      'ws://${server.address}:${server.port}',
+      server.address.address,
+      server.port.toString(),
+    ),
+  );
+  Timer.periodic(
+    const Duration(seconds: 10),
+    (timer) {
+      print(HostStore.hosts);
+    },
   );
   print('Serving at http://${server.address.host}:${server.port}');
 }

@@ -1,41 +1,96 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'client_model/client_model.dart';
+import '../interfaces/impl/host_message_handeler.dart';
+import 'block_store.dart';
+import 'host_model/host_model.dart';
+import 'message_model/message_model.dart';
 
-class ClientStore {
-  ClientStore._();
-  static ClientStore? _instance;
-  static ClientStore get instance {
-    _instance ??= ClientStore._();
-    return _instance!;
-  }
+class HostStore {
+  static bool isInitialzed = false;
+  HostStore._();
+  static final _hosts =
+      BehaviorSubject<Map<String, HostMessageHandeler>>.seeded({});
+  static late final Host thisHost;
 
-  final _clients = <Client>{
-    Client("testClient"),
-  };
-  UnmodifiableSetView<Client> get clients => UnmodifiableSetView(_clients);
+  static Future<void> initialize(String hostsFileName, Host host) async {
+    thisHost = host;
+    assert(BlockStore.isInitialzed, 'BlockStore has not been initialized!');
+    final file = File(hostsFileName);
 
-  bool add(Client client) {
-    if (contains(client)) {
-      return false;
+    if (await file.exists()) {
+      final fileAsString = await file.readAsString();
+
+      final hostsListJson = jsonDecode(fileAsString);
+
+      for (final hostJson in hostsListJson) {
+        final host = Host.fromJson(hostJson);
+        final uri = Uri.parse('${host.hostId}/${thisHost.ip}:${thisHost.port}');
+        final socket = IOWebSocketChannel.connect(uri);
+        add(
+          '${host.ip}:${host.port}',
+          HostMessageHandeler(socket, '${host.ip}:${host.port}'),
+        );
+      }
+
+      isInitialzed = true;
     } else {
-      _clients.add(client);
-      return true;
+      print('Hosts file does not exist!');
+      exit(1);
     }
   }
 
-  bool contains(Client client) {
-    return _clients.contains(client);
+  static UnmodifiableMapView<String, HostMessageHandeler> get hosts =>
+      UnmodifiableMapView(_hosts.value);
+
+  static Future<void> add(String hostId, HostMessageHandeler handeler) async {
+    final newHosts = _hosts.value;
+    newHosts[hostId] = handeler;
+    _hosts.add(newHosts);
   }
 
-  bool containsById(String id) {
-    for (final client in _clients) {
-      if (client.clientId == id) return true;
+  static void broadcastMessage(Message message) {
+    hosts.forEach(
+      (host, handeler) {
+        handeler.socket.sink.add(jsonEncode(message));
+        //socket?.sink.add(jsonEncode(message));
+      },
+    );
+  }
+
+  static void broadcastMessageToExcept(
+    Message message,
+    List<Host> exceptions,
+  ) {
+    hosts.forEach(
+      (hostId, socket) {
+        bool found = false;
+        for (final ex in exceptions) {
+          if (ex.hostId == hostId) {
+            found = true;
+          }
+        }
+        if (!found) {
+          //socket?.sink.add(jsonEncode(message));
+        }
+      },
+    );
+  }
+
+  static bool containsById(String hostId) {
+    if (_hosts.value.containsKey(hostId)) {
+      return true;
     }
     return false;
   }
 
-  Client getById(String clientId) {
-    return _clients.firstWhere((element) => element.clientId == clientId);
+  static HostMessageHandeler getById(String hostId) {
+    return _hosts.value[hostId]!;
   }
 }

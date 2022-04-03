@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:web_socket_channel/io.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../interfaces/impl/host_message_handeler.dart';
 import 'block_store.dart';
@@ -16,12 +15,14 @@ class HostStore {
   static bool isInitialzed = false;
   HostStore._();
   static final _hosts =
-      BehaviorSubject<Map<String, HostMessageHandeler>>.seeded({});
+      BehaviorSubject<Map<String, HostMessageHandeler>>.seeded(
+    {},
+  );
   static late final Host thisHost;
 
   static Future<void> initialize(String hostsFileName, Host host) async {
-    thisHost = host;
     assert(BlockStore.isInitialzed, 'BlockStore has not been initialized!');
+    thisHost = host;
     final file = File(hostsFileName);
 
     if (await file.exists()) {
@@ -31,8 +32,11 @@ class HostStore {
 
       for (final hostJson in hostsListJson) {
         final host = Host.fromJson(hostJson);
-        final uri = Uri.parse('${host.hostId}/${thisHost.ip}:${thisHost.port}');
-        final socket = IOWebSocketChannel.connect(uri);
+
+        final socket = IOWebSocketChannel.connect(
+          Uri.parse(host.hostId),
+          headers: {'host': '${thisHost.ip}:${thisHost.port}'},
+        );
         add(
           '${host.ip}:${host.port}',
           HostMessageHandeler(socket, '${host.ip}:${host.port}'),

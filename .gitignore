@@ -8,3 +8,5 @@ build/
 *.freezed.dart
 blocks/
 blocks2/
+hosts.json
+hosts2.json

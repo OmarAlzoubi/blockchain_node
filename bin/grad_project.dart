@@ -7,8 +7,6 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-// import 'package:shelf_web_socket/shelf_web_socket.dart';
-// import 'interfaces/impl/host_message_handeler.dart';
 import 'interfaces/impl/host_message_handeler.dart';
 import 'models/block_store.dart';
 import 'models/client_store.dart';
@@ -67,17 +65,14 @@ Future<void> main(List<String> args) async {
       }
     },
   );
-  //final ip = 'ws://127.0.0.1:$port';
-
   router.get(
-    '/<hostId>',
-    (Request request, String hostId) {
+    '/',
+    (Request request) {
       return webSocketHandler(
         (WebSocketChannel socket) {
-          if (HostStore.containsById(hostId)) {
-            final handeler = HostMessageHandeler(socket, hostId);
-            HostStore.add(hostId, handeler);
-          }
+          final hostId = request.headers['host']!;
+          final handeler = HostMessageHandeler(socket, hostId);
+          HostStore.add(hostId, handeler);
         },
       ).call(request);
     },
@@ -97,11 +92,6 @@ Future<void> main(List<String> args) async {
       server.port.toString(),
     ),
   );
-  Timer.periodic(
-    const Duration(seconds: 10),
-    (timer) {
-      print(HostStore.hosts);
-    },
-  );
+
   print('Serving at http://${server.address.host}:${server.port}');
 }

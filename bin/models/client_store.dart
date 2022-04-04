@@ -43,6 +43,7 @@ class HostStore {
         final host = Host.fromJson(hostJson);
 
         /// Try to establish a socket connection with the other end
+        print(host.hostId);
         final socket = IOWebSocketChannel.connect(
           Uri.parse(host.hostId),
           headers: {'host': '${thisHost.ip}:${thisHost.port}'},

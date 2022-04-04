@@ -46,6 +46,8 @@ class HostMessageHandeler extends IHostMessageHandeler {
         _socketListener?.cancel();
       },
       onError: (err, st) {
+        print(err);
+        print(st);
         print('an error occured');
         _socketListener?.cancel();
       },

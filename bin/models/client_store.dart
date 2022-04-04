@@ -7,22 +7,31 @@ import 'package:rxdart/rxdart.dart';
 import 'package:web_socket_channel/io.dart';
 
 import '../interfaces/impl/host_message_handeler.dart';
-import 'block_store.dart';
 import 'host_model/host_model.dart';
 import 'message_model/message_model.dart';
 
+/// A singleton class, abstracts dealing with host files
+///
+/// [isInitialized] is a flag that tells whether the initiallization
+/// step is compelete, [thisHost] stores the host file of the
+/// current node
 class HostStore {
   static bool isInitialzed = false;
-  HostStore._();
+  static late final Host thisHost;
+
+  /// Stores the state of the store
   static final _hosts =
       BehaviorSubject<Map<String, HostMessageHandeler>>.seeded(
     {},
   );
-  static late final Host thisHost;
 
-  static Future<void> initialize(String hostsFileName, Host host) async {
-    assert(BlockStore.isInitialzed, 'BlockStore has not been initialized!');
+  static Future<void> initialize(
+    String hostsFileName,
+    Host host,
+  ) async {
     thisHost = host;
+
+    /// Load the hosts from the host file
     final file = File(hostsFileName);
 
     if (await file.exists()) {
@@ -33,6 +42,7 @@ class HostStore {
       for (final hostJson in hostsListJson) {
         final host = Host.fromJson(hostJson);
 
+        /// Try to establish a socket connection with the other end
         final socket = IOWebSocketChannel.connect(
           Uri.parse(host.hostId),
           headers: {'host': '${thisHost.ip}:${thisHost.port}'},
@@ -43,6 +53,7 @@ class HostStore {
         );
       }
 
+      /// Set the initialization flag
       isInitialzed = true;
     } else {
       print('Hosts file does not exist!');
@@ -50,30 +61,37 @@ class HostStore {
     }
   }
 
-  static UnmodifiableMapView<String, HostMessageHandeler> get hosts =>
-      UnmodifiableMapView(_hosts.value);
+  static UnmodifiableMapView<String, HostMessageHandeler> get hosts {
+    return UnmodifiableMapView(_hosts.value);
+  }
 
-  static Future<void> add(String hostId, HostMessageHandeler handeler) async {
+  /// Adds a host to the store
+  static Future<void> add(
+    String hostId,
+    HostMessageHandeler handeler,
+  ) async {
     final newHosts = _hosts.value;
     newHosts[hostId] = handeler;
     _hosts.add(newHosts);
   }
 
+  /// Sends [message] to all connected [WebSocketChannels]
   static void broadcastMessage(Message message) {
     hosts.forEach(
       (host, handeler) {
-        handeler.socket.sink.add(jsonEncode(message));
-        //socket?.sink.add(jsonEncode(message));
+        handeler.socket.sink.add(message.asJson);
       },
     );
   }
 
+  /// Sends [message] to all connected [WebSocketChannel]s except
+  /// the ones in [exceptions]
   static void broadcastMessageToExcept(
     Message message,
     List<Host> exceptions,
   ) {
     hosts.forEach(
-      (hostId, socket) {
+      (hostId, handeler) {
         bool found = false;
         for (final ex in exceptions) {
           if (ex.hostId == hostId) {
@@ -81,7 +99,7 @@ class HostStore {
           }
         }
         if (!found) {
-          //socket?.sink.add(jsonEncode(message));
+          handeler.socket.sink.add(message.asJson);
         }
       },
     );

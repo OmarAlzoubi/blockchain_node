@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:args/args.dart';
 import 'package:shelf/shelf.dart';
@@ -30,9 +29,11 @@ Future<void> main(List<String> args) async {
     (Request request, String blockId) async {
       if (BlockStore.contains(blockId)) {
         final block = BlockStore.get(blockId)!;
-        return Response.ok(jsonEncode(block));
+        return Response.ok(block.asJson);
       } else {
-        HostStore.broadcastMessage(Message.blockLookupRequest([], blockId));
+        HostStore.broadcastMessage(
+          Message.blockLookupRequest([], blockId),
+        );
         final completer = Completer();
         bool timedOut = false;
         Stream.fromFuture(
@@ -58,7 +59,8 @@ Future<void> main(List<String> args) async {
         await completer.future;
         if (!timedOut) {
           print(BlockStore.blocks);
-          return Response.ok(jsonEncode(BlockStore.get(blockId)));
+          final block = BlockStore.get(blockId)!;
+          return Response.ok(block.asJson);
         }
 
         return Response.ok('block-not-found');

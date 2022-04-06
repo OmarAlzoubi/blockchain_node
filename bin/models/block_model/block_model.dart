@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 part 'block_model.freezed.dart';
 
@@ -13,6 +11,5 @@ class Block with _$Block {
     String blockId,
     String blockData,
   ) = _Block;
-  factory Block.fromJson(dynamic json) => _$BlockFromJson(jsonDecode(json));
-  String get asJson => jsonEncode(this);
+  factory Block.fromJson(dynamic json) => _$BlockFromJson(json);
 }

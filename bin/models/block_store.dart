@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:rxdart/subjects.dart';
@@ -34,7 +35,8 @@ class BlockStore {
       await for (final entry in blocksDirectory.list()) {
         final file = File(entry.path);
         final fileAsString = await file.readAsString();
-        final block = Block.fromJson(fileAsString);
+        final decodedFile = jsonDecode(fileAsString);
+        final block = Block.fromJson(decodedFile);
         blocks[block.blockId] = block;
       }
       _blocks.add(blocks);
@@ -60,7 +62,8 @@ class BlockStore {
         final blockFile = await File(
           '${blocksDirectory.path}/${block.blockId}.json',
         ).create();
-        await blockFile.writeAsString(block.asJson);
+        final blockAsJson = jsonEncode(block);
+        await blockFile.writeAsString(blockAsJson);
       }
     }
   }

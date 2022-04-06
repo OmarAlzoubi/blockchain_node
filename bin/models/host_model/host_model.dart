@@ -6,13 +6,11 @@ part 'host_model.g.dart';
 ///
 /// [ip] is the ip address and [port]
 /// is the port that the server is hosted ong
-/// [hostId] is `ip:port`
 @freezed
 class Host with _$Host {
   const factory Host(
     String ip,
-    String port,
-    String hostId,
+    int port,
   ) = _Host;
   factory Host.fromJson(Map<String, dynamic> json) => _$HostFromJson(json);
 }

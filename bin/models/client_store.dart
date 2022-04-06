@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
-import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:web_socket_channel/io.dart';
-
-import '../interfaces/impl/host_message_handeler.dart';
+import 'block_store.dart';
 import 'host_model/host_model.dart';
 import 'message_model/message_model.dart';
+import 'socket_store.dart';
 
 /// A singleton class, abstracts dealing with host files
 ///
@@ -17,20 +15,11 @@ import 'message_model/message_model.dart';
 /// current node
 class HostStore {
   static bool isInitialzed = false;
-  static late final Host thisHost;
-
-  /// Stores the state of the store
-  static final _hosts =
-      BehaviorSubject<Map<String, HostMessageHandeler>>.seeded(
-    {},
-  );
 
   static Future<void> initialize(
     String hostsFileName,
-    Host host,
+    Host thisHost,
   ) async {
-    thisHost = host;
-
     /// Load the hosts from the host file
     final file = File(hostsFileName);
 
@@ -41,17 +30,55 @@ class HostStore {
 
       for (final hostJson in hostsListJson) {
         final host = Host.fromJson(hostJson);
+        try {
+          print('connecting to ${host.ip}:${host.port}');
+          Random r = Random();
+          String key = base64.encode(
+            List<int>.generate(
+              8,
+              (_) => r.nextInt(255),
+            ),
+          );
 
-        /// Try to establish a socket connection with the other end
-        print(host.hostId);
-        final socket = IOWebSocketChannel.connect(
-          Uri.parse(host.hostId),
-          headers: {'host': '${thisHost.ip}:${thisHost.port}'},
-        );
-        add(
-          '${host.ip}:${host.port}',
-          HostMessageHandeler(socket, '${host.ip}:${host.port}'),
-        );
+          final client = HttpClient();
+          final request = await client.get(
+            host.ip,
+            host.port,
+            '/ws',
+          );
+          request.headers.add('Connection', 'upgrade');
+          request.headers.add('Upgrade', 'websocket');
+          request.headers.add(
+            'sec-websocket-version',
+            '13',
+          ); // insert the correct version here
+          request.headers.add('sec-websocket-key', key);
+          final response = await request.close();
+          final socket = await response.detachSocket();
+
+          final ws = WebSocket.fromUpgradedSocket(
+            socket,
+            serverSide: false,
+          );
+          final id = SocketStore.add(ws);
+          SocketStore.addListener(id, (e) {
+            final decodedMessage = jsonDecode(e);
+            final message = Message.fromJson(decodedMessage);
+            message.whenOrNull(
+              blockLookupRequest: (ex, bid) {
+                if (BlockStore.contains(bid)) {
+                  final block = BlockStore.get(bid)!;
+                  final reply = Message.blockLookUpResponse(block);
+                  final replyAsJson = jsonEncode(reply);
+                  ws.add(replyAsJson);
+                }
+              },
+            );
+          });
+        } catch (e, st) {
+          print(e);
+          print(st);
+        }
       }
 
       /// Set the initialization flag
@@ -60,60 +87,5 @@ class HostStore {
       print('Hosts file does not exist!');
       exit(1);
     }
-  }
-
-  static UnmodifiableMapView<String, HostMessageHandeler> get hosts {
-    return UnmodifiableMapView(_hosts.value);
-  }
-
-  /// Adds a host to the store
-  static Future<void> add(
-    String hostId,
-    HostMessageHandeler handeler,
-  ) async {
-    final newHosts = _hosts.value;
-    newHosts[hostId] = handeler;
-    _hosts.add(newHosts);
-  }
-
-  /// Sends [message] to all connected [WebSocketChannels]
-  static void broadcastMessage(Message message) {
-    hosts.forEach(
-      (host, handeler) {
-        handeler.socket.sink.add(message.asJson);
-      },
-    );
-  }
-
-  /// Sends [message] to all connected [WebSocketChannel]s except
-  /// the ones in [exceptions]
-  static void broadcastMessageToExcept(
-    Message message,
-    List<Host> exceptions,
-  ) {
-    hosts.forEach(
-      (hostId, handeler) {
-        bool found = false;
-        for (final ex in exceptions) {
-          if (ex.hostId == hostId) {
-            found = true;
-          }
-        }
-        if (!found) {
-          handeler.socket.sink.add(message.asJson);
-        }
-      },
-    );
-  }
-
-  static bool containsById(String hostId) {
-    if (_hosts.value.containsKey(hostId)) {
-      return true;
-    }
-    return false;
-  }
-
-  static HostMessageHandeler getById(String hostId) {
-    return _hosts.value[hostId]!;
   }
 }

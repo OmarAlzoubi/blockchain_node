@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../block_model/block_model.dart';
@@ -27,6 +25,5 @@ class Message with _$Message {
     String blockId,
   ) = _MessageGetBlock;
 
-  factory Message.fromJson(dynamic json) => _$MessageFromJson(jsonDecode(json));
-  String get asJson => jsonEncode(this);
+  factory Message.fromJson(dynamic json) => _$MessageFromJson(json);
 }

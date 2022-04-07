@@ -84,7 +84,7 @@ Future<void> main(List<String> args) async {
   final parsedArgs = parseArguments(args);
 
   final httpSocket = await ServerSocket.bind(
-    '127.0.0.1',
+    '0.0.0.1',
     parsedArgs.port,
   );
   final server = HttpServer.listenOn(httpSocket);

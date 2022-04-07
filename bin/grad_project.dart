@@ -103,6 +103,7 @@ Future<void> main(List<String> args) async {
           final method = request.method;
           if (method == 'GET') {
             if (uri.path == '/getBlock') {
+              print('got a get request');
               await getBlockRequestHandeler(uri, request.response);
             }
 

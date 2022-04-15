@@ -1,7 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../block_model/block_model.dart';
+import '../block/block.dart';
 import '../host_model/host_model.dart';
+import '../transaction/transaction.dart';
 part 'message_model.freezed.dart';
 part 'message_model.g.dart';
 
@@ -10,7 +11,7 @@ class Message with _$Message {
   Message._();
   factory Message.blockLookupRequest(
     List<Host> exceptions,
-    String blockId,
+    String hash,
   ) = _MessageBlockLookupRequest;
 
   factory Message.blockLookUpResponse(
@@ -21,8 +22,12 @@ class Message with _$Message {
     Block block,
   ) = _MessageAddBlock;
 
+  factory Message.transaction(
+    Transaction transaction,
+  ) = _MessageTransaction;
+
   factory Message.getBlock(
-    String blockId,
+    String hash,
   ) = _MessageGetBlock;
 
   factory Message.fromJson(dynamic json) => _$MessageFromJson(json);

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'blockchain.dart';
 import 'helpers.dart';
-import 'models/block_store.dart';
 import 'models/client_store.dart';
 import 'models/host_model/host_model.dart';
 import 'models/message_model/message_model.dart';
@@ -14,31 +14,37 @@ void webSocketHandeler(String socketId) {
     socketId,
     (e) {
       final message = Message.fromJson(jsonDecode(e));
-      message.whenOrNull(
-        blockLookUpResponse: (block) {
-          BlockStore.add(block);
-        },
-      );
+      message.whenOrNull(blockLookUpResponse: (block) async {
+        await BlockChain().add(block);
+      }, addBlock: (block) async {
+        await BlockChain().add(block);
+      }, transaction: (transaction) async {
+        await BlockChain().addTransaction(transaction);
+      });
     },
   );
 }
 
-Future getBlockRequestHandeler(Uri uri, HttpResponse response) async {
-  final params = uri.queryParameters;
-  final blockId = params['blockId'];
-  if (blockId != null) {
-    if (BlockStore.contains(blockId)) {
-      final block = BlockStore.get(blockId)!;
+Future getBlockRequestHandeler(
+  HttpRequest request,
+  HttpResponse response,
+) async {
+  final params = request.uri.queryParameters;
+  final hash = params['hash'];
+  final blockChain = BlockChain();
+  if (hash != null) {
+    if (blockChain.contains(hash)) {
+      final block = blockChain.get(hash)!;
       final blockAsJson = jsonEncode(block);
       response.write(blockAsJson);
     } else {
-      final message = Message.blockLookupRequest([], blockId);
+      final message = Message.blockLookupRequest([], hash);
       SocketStore.broadcast(message);
       final completer = Completer();
       bool timedOut = false;
       Stream.fromFuture(
-        BlockStore.stream.firstWhere(
-          (element) => element.containsKey(blockId),
+        blockChain.hashStream.firstWhere(
+          (element) => element.containsKey(hash),
         ),
       ).timeout(
         const Duration(seconds: 10),
@@ -58,7 +64,7 @@ Future getBlockRequestHandeler(Uri uri, HttpResponse response) async {
 
       await completer.future;
       if (!timedOut) {
-        final block = BlockStore.get(blockId)!;
+        final block = blockChain.get(hash)!;
         final blockAsJson = jsonEncode(block);
         response.write(blockAsJson);
       } else {
@@ -71,8 +77,8 @@ Future getBlockRequestHandeler(Uri uri, HttpResponse response) async {
 
 Future<void> initializeApp(ParsingResults args) async {
   SocketStore.initialize();
-  await BlockStore.initialize(
-    args.blocksFolderName,
+  BlockChain(
+    blocksFolderName: args.blocksFolderName,
   );
   await HostStore.initialize(
     args.hostsFileName,
@@ -102,9 +108,9 @@ Future<void> main(List<String> args) async {
         } else {
           final method = request.method;
           if (method == 'GET') {
+            print('got a get request');
             if (uri.path == '/getBlock') {
-              print('got a get request');
-              await getBlockRequestHandeler(uri, request.response);
+              await getBlockRequestHandeler(request, request.response);
             }
 
             await request.response.close();

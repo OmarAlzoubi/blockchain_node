@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'block_store.dart';
+import '../blockchain.dart';
 import 'host_model/host_model.dart';
 import 'message_model/message_model.dart';
 import 'socket_store.dart';
@@ -66,8 +66,8 @@ class HostStore {
             final message = Message.fromJson(decodedMessage);
             message.whenOrNull(
               blockLookupRequest: (ex, bid) {
-                if (BlockStore.contains(bid)) {
-                  final block = BlockStore.get(bid)!;
+                if (BlockChain().contains(bid)) {
+                  final block = BlockChain().get(bid)!;
                   final reply = Message.blockLookUpResponse(block);
                   final replyAsJson = jsonEncode(reply);
                   ws.add(replyAsJson);

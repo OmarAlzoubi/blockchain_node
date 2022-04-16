@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:rxdart/rxdart.dart';
@@ -39,10 +38,7 @@ class BlockChain {
       final blocks = <Block>[];
       if (blocksDir.existsSync()) {
         for (final entity in blocksDir.listSync()) {
-          final path = entity.path;
-          final file = File(path);
-          final fileAsString = file.readAsStringSync();
-          final block = Block.fromJson(jsonDecode(fileAsString));
+          final block = Block.loadBlockSync(filePath: entity.path)!;
           blocks.add(block);
           blockChain[block] = {};
         }

@@ -20,6 +20,18 @@ class Block with _$Block {
     return file.existsSync();
   }
 
+  static Block? loadBlockSync({
+    required String filePath,
+  }) {
+    final file = File(filePath);
+    if (file.existsSync()) {
+      final fileAsString = file.readAsStringSync();
+      final block = Block.fromJson(jsonDecode(fileAsString));
+      return block;
+    }
+    return null;
+  }
+
   Future<void> saveBlockSync({
     String folderName = "blocks",
   }) async {

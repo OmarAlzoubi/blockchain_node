@@ -110,10 +110,8 @@ class BlockChain {
 
   Future<void> addTransaction(Transaction transaction) async {
     for (final block in blocks) {
-      // We're looking for an open block that is not
-      // The genesis block
+      // We're looking for an open block
       if (block.closed) continue;
-      if (block == genesisBLock) continue;
       // Since a block's hash changes every time a transaction is added
       // We need to propagate the change to all blocks
       final newBlock = block.addTransaction(transaction);

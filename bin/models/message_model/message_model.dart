@@ -8,27 +8,32 @@ part 'message_model.g.dart';
 
 @freezed
 class Message with _$Message {
-  Message._();
-  factory Message.blockLookupRequest(
+  const Message._();
+  const factory Message.blockLookupRequest(
     List<Host> exceptions,
     String hash,
   ) = _MessageBlockLookupRequest;
 
-  factory Message.blockLookUpResponse(
+  const factory Message.blockLookUpResponse(
     Block block,
   ) = _MessageBlockLookUpResponse;
 
-  factory Message.addBlock(
+  const factory Message.addBlock(
     Block block,
   ) = _MessageAddBlock;
 
-  factory Message.transaction(
+  const factory Message.transaction(
     Transaction transaction,
   ) = _MessageTransaction;
 
-  factory Message.getBlock(
+  const factory Message.getBlock(
     String hash,
   ) = _MessageGetBlock;
+
+  const factory Message.propagateBlockChange(
+    Block oldBlock,
+    Block newBlock,
+  ) = _MessagePropagateBlockChange;
 
   factory Message.fromJson(dynamic json) => _$MessageFromJson(json);
 }

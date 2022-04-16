@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:rxdart/rxdart.dart';
 
 import 'models/block/block.dart';
+import 'models/message_model/message_model.dart';
+import 'models/socket_store.dart';
 import 'models/transaction/transaction.dart';
 
 typedef BlockChainMap = Map<Block, Set<Block>>;
@@ -112,6 +114,7 @@ class BlockChain {
       // We need to propagate the change to all blocks
       final newBlock = block.addTransaction(transaction);
       await propagateBlockChange(block, newBlock);
+      SocketStore.broadcast(Message.propagateBlockChange(block, newBlock));
       return;
     }
   }

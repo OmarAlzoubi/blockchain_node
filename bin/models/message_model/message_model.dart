@@ -30,5 +30,10 @@ class Message with _$Message {
     String hash,
   ) = _MessageGetBlock;
 
+  const factory Message.propagateBlockChange(
+    Block oldBlock,
+    Block newBlock,
+  ) = _MessagePropagateBlockChange;
+
   factory Message.fromJson(dynamic json) => _$MessageFromJson(json);
 }

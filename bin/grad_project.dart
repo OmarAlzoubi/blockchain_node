@@ -14,13 +14,22 @@ void webSocketHandeler(String socketId) {
     socketId,
     (e) {
       final message = Message.fromJson(jsonDecode(e));
-      message.whenOrNull(blockLookUpResponse: (block) async {
-        await BlockChain().add(block);
-      }, addBlock: (block) async {
-        await BlockChain().add(block);
-      }, transaction: (transaction) async {
-        await BlockChain().addTransaction(transaction);
-      });
+      message.whenOrNull(
+        blockLookUpResponse: (block) async {
+          await BlockChain().add(block);
+        },
+        addBlock: (block) async {
+          await BlockChain().add(block);
+        },
+        transaction: (transaction) async {
+          await BlockChain().addTransaction(transaction);
+        },
+        propagateBlockChange: (oldBlock, newBlock) async {
+          if (BlockChain().contains(oldBlock.hash)) {
+            await BlockChain().propagateBlockChange(oldBlock, newBlock);
+          }
+        },
+      );
     },
   );
 }

@@ -97,7 +97,7 @@ class BlockChain {
 
     for (final dependant in dependants) {
       final newDependenant = oldBlock.copyWith(
-        previousHash: oldBlock.hash,
+        previousHash: newBlock.hash,
       );
       await propagateBlockChange(dependant, newDependenant);
       blockChainCopy[newBlock]!.add(newDependenant);
